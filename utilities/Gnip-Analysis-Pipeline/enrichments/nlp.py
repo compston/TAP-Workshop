@@ -22,7 +22,7 @@ class BodyNLPEnrichment(BaseEnrichment):
         """
         Load and initialize any external models or data here
         """
-        self.corenlp = CoreNLP("pos", corenlp_jars=["./enrichments/stanford-corenlp-full-2015-04-20/*"])
+        self.corenlp = CoreNLP("pos", corenlp_jars=["./enrichments/stanford-corenlp-full-2015-12-09/*"])
     def enrichment_value(self,tweet):
         """ Calculate enrichment value """
         rep = self.corenlp.parse_doc(tweet["body"])
@@ -39,7 +39,7 @@ class BioNLPEnrichment(BaseEnrichment):
         """
         Load and initialize any external models or data here
         """
-        self.corenlp = CoreNLP("pos", corenlp_jars=["./enrichments/stanford-corenlp-full-2015-04-20/*"])
+        self.corenlp = CoreNLP("pos", corenlp_jars=["./enrichments/stanford-corenlp-full-2015-12-09/*"])
     def enrichment_value(self,tweet):
         """ Calculate enrichment value """
         rep = self.corenlp.parse_doc(tweet["actor"]["summary"])
