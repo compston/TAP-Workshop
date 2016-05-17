@@ -1,2 +1,4 @@
 /utilities/Gnip-Python-Search-API-Utilities/config
 /utilities/Gnip-Python-Historical-Utilities/.gnip
+*.DS_Store
+/utilities/Gnip-Analysis-Pipeline/enrichments/stanford-corenlp-full*

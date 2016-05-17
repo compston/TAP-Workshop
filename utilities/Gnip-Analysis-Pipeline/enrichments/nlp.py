@@ -7,7 +7,7 @@ Requires:
 """
 
 try:
-    sys.path.insert(0,"/home/jkolb/stanford_corenlp_pywrapper")
+    sys.path.insert(0,"./enrichments/stanford_corenlp_pywrapper")
     from stanford_corenlp_pywrapper import CoreNLP
 except ImportError:
     sys.stderr.write("Please install 'stanford_corenlp_pywrapper' and add to your sys.path\n")
@@ -22,7 +22,7 @@ class BodyNLPEnrichment(BaseEnrichment):
         """
         Load and initialize any external models or data here
         """
-        self.corenlp = CoreNLP("pos", corenlp_jars=["/home/jkolb/stanford-corenlp-full-2015-04-20/*"])
+        self.corenlp = CoreNLP("pos", corenlp_jars=["./enrichments/stanford-corenlp-full-2015-04-20/*"])
     def enrichment_value(self,tweet):
         """ Calculate enrichment value """
         rep = self.corenlp.parse_doc(tweet["body"])
@@ -39,7 +39,7 @@ class BioNLPEnrichment(BaseEnrichment):
         """
         Load and initialize any external models or data here
         """
-        self.corenlp = CoreNLP("pos", corenlp_jars=["/home/jkolb/stanford-corenlp-full-2015-04-20/*"])
+        self.corenlp = CoreNLP("pos", corenlp_jars=["./enrichments/stanford-corenlp-full-2015-04-20/*"])
     def enrichment_value(self,tweet):
         """ Calculate enrichment value """
         rep = self.corenlp.parse_doc(tweet["actor"]["summary"])
