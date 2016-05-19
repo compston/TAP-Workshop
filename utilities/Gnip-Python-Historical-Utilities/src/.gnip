@@ -1,0 +1,10 @@
+[creds]
+un = stephen@gnip.com
+pwd = kan733Northside2314
+
+[endpoint]
+url = https://historical.gnip.com/accounts/stephen-test-deleteme/
+
+[tmp]
+prevurl = https://historical.gnip.com:443/accounts/stephen-test-deleteme/publishers/twitter/historical/track/jobs/m85c69k8jp.json
+

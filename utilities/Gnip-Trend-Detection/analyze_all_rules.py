@@ -1,4 +1,4 @@
-#!/usr/bin/python 
+#!/usr/bin/env python 
 
 """
 
@@ -34,9 +34,10 @@ import operator
 import fnmatch
 import multiprocessing as mp
 
-from rebin import rebin
-from analyze import analyze as analyzer
-from plot import plot as plotter
+from gnip_trend_detection.analysis import rebin
+from gnip_trend_detection.analysis import analyze as analyzer
+from gnip_trend_detection.analysis import plot as plotter
+
 
 # a few internal configuration setting
 
@@ -184,7 +185,7 @@ if args.do_analysis:
    
     pool = mp.Pool()
     # get and configure the model
-    import models
+    from gnip_trend_detection import models
     model = getattr(models,model_name)(config=model_config) 
 
     # iterate over rule data and analyze point-by-point

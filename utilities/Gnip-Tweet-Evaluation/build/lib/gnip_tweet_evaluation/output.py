@@ -12,7 +12,8 @@ def dump_conversation(results):
     
     # the name of the analysis
     uid = results["unique_id"]
-    data_loc = '/home/' + os.getenv('USER') + '/test/'
+    #data_loc = '/home/' + os.getenv('USER') + '/test/'
+    data_loc = '~/'
 
     # make a directory to write the full outputs
     try:

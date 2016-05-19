@@ -1,0 +1,1 @@
+https://s3-us-west-1.amazonaws.com/archive.replay.snapshots/snapshots/twitter/track/activity_streams/stephen-test-deleteme/2016/05/17/20120101-20120101_m85c69k8jp/2012/01/01/00/00_activities.json.gz?AWSAccessKeyId=AKIAI5KEHCU2MJDDVUFQ&Expires=1466275762&Signature=Oww7bGCslFoXzR7%2FJmYqPpLEk0Y%3D
