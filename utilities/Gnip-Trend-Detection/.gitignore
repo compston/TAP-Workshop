@@ -1,0 +1,12 @@
+*.pyc
+*.json
+*log
+*out
+*.txt
+*.csv
+*.swp
+*.cfg
+build
+dist
+*.egg-info
+libraries/
