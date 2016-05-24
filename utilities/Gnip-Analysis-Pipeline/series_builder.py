@@ -7,6 +7,7 @@ import operator
 import ConfigParser
 import datetime
 import argparse
+import collections
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-i","--input-files",dest="input_file_list",default=["data/data.pkl"],nargs="+")
@@ -61,11 +62,14 @@ for time_bucket,time_bucket_data in data.items():
                 value = value/float(norm_factors[time_bucket[0:8]])
             measurement_str = "{},{},{},{},{}".format(time_bucket_start,m.get_name(),value,-1,bucket_size_in_sec)
             output_list.append(measurement_str)
-
+	elif isinstance(result,collections.defaultdict) and isinstance(result.values()[0],int):
+	    for token,count in result.items():
+	        measurement_str = "{},{},{},{},{}".format(time_bucket_start,m.get_name()+token.encode('utf8'),count,-1,bucket_size_in_sec)
+		output_list.append(measurement_str)
 output_str = '\n'.join(sorted(output_list))
 output.write(output_str + '\n')
 
-#i# build and dump rules file
+## build and dump rules file
 rules_dict = {}
 rules_dict["rules"] = [{"value":rule} for rule in rules]
 json.dump(rules_dict,open(args.rules_output,"w"))

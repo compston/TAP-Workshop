@@ -259,6 +259,34 @@ class BodyDTCounter(POSCounter):
         ans = self.get_pos(rep,pos="DT")
         self.counter += len(ans)
 
+
+## Non-targeted term counters
+
+class AllBodyTermsCounter(SimpleCountersBase,TokenizedBody):
+    def update(self,tweet):
+	for token in self.get_tokens(tweet):
+	    self.counters[token] +=1
+m.append(AllBodyTermsCounter)
+
+class AllBioTermsUniqUserCounter(SimpleCountersBase,TokenizedBio):
+    def __init__(self):
+        self.users = []
+        super(AllBioTermsUniqUserCounter,self).__init__()
+    def update(self,tweet):
+        if tweet['actor']['id'] not in self.users:
+            for token in self.get_tokens(tweet):
+                self.counters[token] += 1
+            self.users.append(tweet['actor']['id'])
+
+## Non-targeted unique user counters
+
+#class UniqUserPerTermCounter(TokenizedBody,SimpleCountersBase)
+#    
+#    def update(self,tweet):
+#	user_id = tweet['actor']['id']
+#	for token in self.get_tokens(tweet):
+	    
+
 ##
 # generate measurements per rule, per topic model, etc.
 ##
