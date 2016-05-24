@@ -37,7 +37,7 @@ import multiprocessing as mp
 from gnip_trend_detection.analysis import rebin
 from gnip_trend_detection.analysis import analyze as analyzer
 from gnip_trend_detection.analysis import plot as plotter
-
+from gnip_trend_detection import models
 
 # a few internal configuration setting
 
@@ -185,7 +185,6 @@ if args.do_analysis:
    
     pool = mp.Pool()
     # get and configure the model
-    from gnip_trend_detection import models
     model = getattr(models,model_name)(config=model_config) 
 
     # iterate over rule data and analyze point-by-point
@@ -212,6 +211,7 @@ if args.do_analysis:
 
 if args.do_plot:
 
+    logr.info('Plotting...')
     # auto-generate this plotting param from re-bin params
     plot_config["x_unit"] = str(rebin_config["n_binning_unit"]) + " " + str(rebin_config["binning_unit"])
     plot_config["plot_dir"] += "{}/".format(model_name)
@@ -226,3 +226,4 @@ if args.do_plot:
         plot_config["plot_file_name"] = rule_name
         plotter(plotable_data,plot_config) 
     
+logr.info('Done.')

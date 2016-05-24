@@ -4,7 +4,7 @@ import pickle
 import argparse
 import sys
 
-sys.path.insert(0,"/home/jkolb/Gnip-Trend-Detection")
+sys.path.insert(0,"/Users/scompston/Desktop/Unilever/TAP-Workshop/utilities/Gnip-Trend-Detection")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-i","--input-file",dest="input_file",default=None)
