@@ -66,12 +66,12 @@ class AnalysisTests(unittest.TestCase):
 
     def test_hashtag_count(self):
         conversation_results = {"unique_id": "TEST"}
-        counter = 1
+        counter = 0
         for tweet in self.tweets:
             tweet['twitter_entities']['hashtags'].append({"text":"notarandomhashtag"}) 
             gnip_tweet_evaluation.analysis.analyze_tweet(tweet,conversation_results) 
             counter += 1
-        self.assertEqual(conversation_results['hashtags']['notarandomhashtag'], 100)  
+        self.assertEqual(conversation_results['hashtags']['notarandomhashtag'],counter)  
 
 if __name__ == '__main__':
     unittest.main()

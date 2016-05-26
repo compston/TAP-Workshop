@@ -13,7 +13,7 @@ import datetime
 def constant_factory():
     return (0, set([]))
 
-logr = logging.getLogger("analysis")
+logger = logging.getLogger("analysis")
 
 def analyze_tweet(tweet,results):
     """ Add relevant data from 'tweet' to 'results'"""
@@ -23,7 +23,7 @@ def analyze_tweet(tweet,results):
         results['tweet_count'] = 0
     results['tweet_count'] += 1
 
-    # tweet body information
+    # tweet body term counts
     if "body_term_count" not in results:
         results["body_term_count"] = SimpleNGrams(
                 char_lower_cutoff=3
@@ -52,7 +52,6 @@ def analyze_tweet(tweet,results):
     if "inReplyTo" in tweet:
         if "in_reply_to" not in results:
             results["in_reply_to"] = defaultdict(int)
-        #print tweet["inReplyTo"]["link"].split("/")[3].lower()
         results["in_reply_to"][tweet["inReplyTo"]["link"].split("/")[3].lower()] += 1
 
     if tweet["verb"] == "share":
@@ -84,7 +83,7 @@ def analyze_tweet(tweet,results):
         try:
             for url in [x["expanded_url"] for x in tweet["gnip"]["urls"]]:
                 results["urls"][url.split("/")[2]] += 1
-        except KeyError:
+        except (KeyError,IndexError):
             pass
 
     if "user_ids_user_freq" not in results:
@@ -132,14 +131,6 @@ def analyze_user_ids(user_ids,results, groupings = None):
     """ call to Audience API goes here """
     import audience_api as api
 
-    aud_name = results["unique_id"]
-
-    log_file_location = "/home/" + os.getenv('USER') + '/audience_api_logging/'
-    try:
-        os.stat(log_file_location) 
-    except OSError:
-        os.mkdir(log_file_location)
-
     if groupings is not None:
         use_groupings = groupings
     else:
@@ -147,7 +138,6 @@ def analyze_user_ids(user_ids,results, groupings = None):
             "gender": {"group_by": ["user.gender"]}
             , "location_country": {"group_by": ["user.location.country"]}
             , "location_country_region": {"group_by": ["user.location.country", "user.location.region"]}
-            , "location_country_region_metro": {"group_by": ["user.location.country", "user.location.region", "user.location.metro"]}
             , "interest": {"group_by": ["user.interest"]}
             , "tv_genre": {"group_by": ["user.tv.genre"]}
             , "device_os": {"group_by": ["user.device.os"]}
@@ -155,9 +145,7 @@ def analyze_user_ids(user_ids,results, groupings = None):
             , "language": {"group_by": ["user.language"]}}}
         use_groupings = json.dumps(grouping_dict)
 
-    audience_api_results = api.many_audience_query(list(user_ids), use_groupings, aud_name, log_file_location,
-            max_upload_size = 100000, max_segment_size = 3000000, max_audience_size = 3000000, min_audience_size = 10000)
-    results["audience_api"] = audience_api_results
+    results['audience_api'] = api.query_users(list(user_ids), use_groupings)
 
 def summarize_tweets(results):
     """ Generate summary items in results """

@@ -1,69 +1,155 @@
-#!/usr/bin/env python
-
-import requests 
-from requests_oauthlib import OAuth1 
-import pprint
-import json
-from numpy import ceil
+import requests
 import yaml
+import json
+import logging
 import os
-import argparse
-import datetime
+import re
+from requests_oauthlib import OAuth1
+from math import ceil
+from farmhash import hash64 as farmhash64
 
-def single_audience_query(user_ids, groupings, audience_name, log_file_location, max_upload_size = 100000, max_segment_size = 3000000, min_audience_size = 10000): 
+logger = logging.getLogger('audience_api')
+
+class AudienceApiException(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+class NoSegmentsFoundException(AudienceApiException):
+    pass
+class AudienceTooSmallException(AudienceApiException):
+    pass
+class SegmentDeleteException(AudienceApiException):
+    pass
+class SegmentCreateException(AudienceApiException): 
+    pass
+class SegmentPostIdsException(AudienceApiException):
+    pass
+class AudiencePostException(AudienceApiException):
+    pass
+class AudienceInfoException(AudienceApiException):
+    pass
+
+AUDIENCE_TOO_SMALL = 'too small'
+
+def add_users(user_ids, unique_id, max_upload_size = 100000, max_segment_size = 3000000):
     """
-    Make 1 request for audience information
+    Split the users into segments based on maximum segment size
     """
 
-    if len(user_ids) < min_audience_size:
-        return "Not enough users to run the audience API"
+    segment_name_base = unique_id
 
-    # Set up credentials (user-specific)
-    creds = yaml.load(open("/home/" + os.getenv('USER') + "/.audience_api_creds","r"))
-    auth=OAuth1(creds["consumer_key"],creds["consumer_secret"],creds["token"],creds["token_secret"])
+    unique_user_ids = list(set(user_ids))
+    num_segments = int(ceil(len(unique_user_ids)/float(max_segment_size)))
+    size_segments = int(ceil(len(unique_user_ids)/float(num_segments)))
+    
+    for i, user_id_chunk in enumerate(chunks(unique_user_ids, size_segments)):
+        add_segment(user_id_chunk, segment_name_base + "_" + str(i), max_upload_size) 
+
+
+def add_segment(user_ids, segment_name, max_upload_size = 100000):
+    """
+    Create segment:
+    If segment already exists, get it.
+    Otherwise, make it
+    """
+
+    # Set up credentials 
+    creds,auth = get_authentication()
     
     base_url = creds["url"]
     json_header = {"Content-Type" : "application/json"}
-
-    logging_dir = log_file_location + audience_name + "_logging" 
-    try:
-        os.stat(logging_dir)
-    except OSError:
-        os.makedirs(logging_dir)
-    logging = open(logging_dir + "/log_file_for_" + audience_name, "w")
-
-    # split the UIDS into max_upload_size 
+    
+    # split ids into max upload size 
     user_id_chunks = chunks(list(set(user_ids)), max_upload_size)
     uids_json_encoded = []
     for uid_chunk in user_id_chunks:
         uids_json_encoded.append(json.dumps({"user_ids": [str(x) for x in uid_chunk]}))
 
-    # create a segment
-    segment_response = requests.post(base_url + "/segments"
+    # check for existence of segment
+    segment_check_response = requests.get(base_url + '/segments'
             , auth = auth
             , headers = json_header
-            , data = json.dumps({"name": audience_name + "segment"})
-            )
-    logging.write(segment_response.text + "\n")
-    segment_id = segment_response.json()["id"]
-
-    # upload the chunks to a segment
-    for uid_chunk_json_encoded in uids_json_encoded:
-        segment_post_ids = requests.post(base_url + "/segments/" + segment_id + "/ids"
+    )
+    logger.info(segment_check_response.text)
+    
+    segment_id = None
+    # get segment if existing
+    for existing_segment in segment_check_response.json()['segments']:
+        if segment_name == existing_segment['name']:
+            segment_id = existing_segment['id'] 
+    # if not existing, create the new segment
+    if segment_id is None:
+        segment_creation_response = requests.post(base_url + '/segments'
                 , auth = auth
                 , headers = json_header
-                , data = uid_chunk_json_encoded
+                , data = json.dumps({'name': segment_name})
                 )
-        logging.write(segment_post_ids.text + "\n")
+        if segment_creation_response.status_code > 299:
+            raise SegmentCreateException(segment_creation_response.text) 
+        logger.info(segment_creation_response.text)
+        segment_id = segment_creation_response.json()["id"]
+        
+        # upload the chunks of user ids to a segment
+        for uid_chunk_json_encoded in uids_json_encoded:
+            segment_post_ids = requests.post(base_url + "/segments/" + segment_id + "/ids"
+                    , auth = auth
+                    , headers = json_header
+                    , data = uid_chunk_json_encoded
+                    )
+            if segment_post_ids.status_code > 299:
+                raise SegmentPostIdsException(segment_post_ids.text)
+        logger.info(segment_post_ids.text)
 
-    # add the segment to an audience
-    audience_post = requests.post(base_url + "/audiences"
+def query_audience(unique_id, groupings):
+    """
+    Get segments associated with unique_id
+    Create and query audience
+    """
+    creds,auth = get_authentication()
+
+    base_url = creds["url"]
+    json_header = {"Content-Type" : "application/json"}
+    
+    audience_name = unique_id
+
+    # check for existence of segment
+    segment_check_response = requests.get(base_url + '/segments'
             , auth = auth
             , headers = json_header
-            , data = json.dumps({"name": audience_name, "segment_ids": [segment_id]})
             )
-    logging.write(audience_post.text + "\n")
-    audience_id = audience_post.json()["id"]
+    segment_ids = []
+    for entry in segment_check_response.json()['segments']:
+        if re.search(r'{}_\d*$'.format(unique_id),entry['name']) is not None:
+            logger.debug('adding segment ' + entry['name'] + '/' + entry['id'] + ' to list')
+            segment_ids.append(entry['id'])
+    if len(segment_ids) == 0:
+        raise NoSegmentsFoundException("no segments found with base name {}".format(audience_name))
+
+    # look for existing audience
+    audience_query_response = requests.get(base_url + '/audiences'
+            , auth = auth
+            , headers = json_header
+            )
+    logger.info('existing audiences: ' + audience_query_response.text)
+
+    audience_id = None
+    # get audience if existing
+    for existing_audience in audience_query_response.json()['audiences']:
+        if audience_name == existing_audience['name']:
+            audience_id = existing_audience['id']
+
+    # make the audience if not existing
+    if audience_id is None:
+        audience_post = requests.post(base_url + "/audiences"
+                , auth = auth
+                , headers = json_header
+                , data = json.dumps({"name": audience_name, "segment_ids": segment_ids})
+                )
+        if audience_post.status_code > 299:
+            raise AudiencePostException(audience_post.text) 
+        audience_id = audience_post.json()['id']
+        logger.info(audience_post.json())
 
     # make a request for information about the audience
     audience_info = requests.post(base_url + "/audiences/" + audience_id + "/query"
@@ -71,212 +157,38 @@ def single_audience_query(user_ids, groupings, audience_name, log_file_location,
             , headers = json_header
             , data = groupings
             )
-    logging.write(groupings + "\n")
-    logging.write(audience_info.text.encode("utf-8"))
-    
+    if audience_info.status_code > 299:
+        raise AudienceInfoException(audience_info.text) 
+    logger.info(audience_info.json())
     return audience_info.json()
 
-def many_audience_query(user_ids, groupings, audience_name, log_file_location, max_upload_size = 100000, max_segment_size = 3000000, max_audience_size = 3000000, min_audience_size = 10000):
+def get_unique_id(user_ids):
     """
-    Make 1 request for audience information for each max_audience_size audience in the set
+    hash the concatenated user IDs and use as segment/audience names
     """
-    if len(user_ids) < min_audience_size:
-        return "Audience is too small to use the Audience API"
-    
-    api_results = []
-    unique_user_ids = list(set(user_ids))
-    num_audiences = int(ceil(len(unique_user_ids)/float(max_audience_size)))
-    size_audiences = int(ceil(len(unique_user_ids)/float(num_audiences)))
-    
-    for i, audience_chunk in enumerate(chunks(unique_user_ids, size_audiences)):
-        api_results.append(single_audience_query(audience_chunk, groupings, audience_name + "_" + str(i), log_file_location, max_upload_size = 100000, max_segment_size = 3000000)) 
-    return api_results
+    hashable_str = ''.join([str(i) for i in sorted(user_ids) ] )
+    return hex(farmhash64(hashable_str))[2:] 
 
-def existing_audience_query(groupings, audience_name, log_file_location = None):
-   
-    """ THIS ISN'T CURRENTLY CALLED BY ANYTHING """
-
-    # Set up credentials (user-specific)
-    creds = yaml.load(open("audience_api_creds.yaml","r"))
-    auth=OAuth1(creds["consumer_key"],creds["consumer_secret"],creds["token"],creds["token_secret"])
-    
-    base_url = creds["url"]
-    json_header = {"Content-Type" : "application/json"} 
-   
-    if log_file_location is None:
-        log_file_loc = "/home/" + os.getenv('USER') 
-    else:
-        log_file_loc = log_file_location
-    
+def query_users(user_ids,groupings):
     try:
-        os.stat(log_file_loc + audience_name + "_logging")
-    except:
-        os.mkdir(log_file_loc + audience_name + "_logging")
-
-    logging = open(log_file_loc + audience_name + "_logging" + "/log_file_for_" + audience_name.split("_")[0], "w")
-    
-    logging.write(groupings + "\n")
-    # make a request for information about the audience
-    all_audiences = requests.get(base_url + "/audiences"
-            , auth = auth
-            )
-
-    audience_id = 0
-    for audience in all_audiences.json():
-        if audience["name"] == audience_name:
-            audience_id = audience["id"]
-            break
-    if audience_id == 0:
-        "That audience doesn't exist"
-
-    else:
-        audience_info = requests.post(base_url + "/audiences/" + audience_id + "/query"
-                , auth = auth
-                , headers = json_header
-                , data = groupings
-                )
-        logging.write(audience_info.text)
-    
-        return audience_info.json()
+        unique_id = get_unique_id(user_ids)
+        add_users(user_ids, str(unique_id))
+        results = query_audience(str(unique_id),groupings) 
+        return results 
+    except AudienceApiException, e:
+        error = json.loads(e.value)['errors'][0] 
+        return {'error' : error}
 
 def chunks(l, n):
     """Yield successive n-sized chunks from l."""
     for i in xrange(0, len(l), n):
         yield l[i:i+n]
 
-def call_audience_api(user_ids
-        , audience_name
-        , log_file_location
-        , groupings = None
-        , max_audience_size=3000000
-        ):
-    """ call to Audience API goes here """
-
-    try:
-        os.stat(log_file_location + audience_name + "_logging")
-    except:
-        os.mkdir(log_file_location + audience_name + "_logging")
+def get_authentication():
+    """ 
+    Set up credentials and authentication 
+    """
+    creds = yaml.load(open(os.getenv('HOME') + "/.audience_api_creds","r"))
+    auth = OAuth1(creds["consumer_key"],creds["consumer_secret"],creds["token"],creds["token_secret"]) 
+    return creds,auth
     
-    aud_name = audience_name
-    if groupings is not None:
-        use_groupings = groupings
-    else:
-        grouping_dict = {"groupings": {
-            "gender": {"group_by": ["user.gender"]}
-            , "location_country": {"group_by": ["user.location.country"]}
-            , "location_country_region": {"group_by": ["user.location.country", "user.location.region"]}
-            , "location_country_region_metro": {"group_by": ["user.location.country", "user.location.region", "user.location.metro"]}
-            , "interest": {"group_by": ["user.interest"]}
-            , "tv_genre": {"group_by": ["user.tv.genre"]}
-            , "device_os": {"group_by": ["user.device.os"]}
-            , "device_network": {"group_by": ["user.device.network"]}
-            , "language": {"group_by": ["user.language"]}}}
-        use_groupings = json.dumps(grouping_dict)
-    
-    audience_api_results = many_audience_query(user_ids
-            , use_groupings
-            , aud_name
-            , log_file_loc 
-            , max_upload_size = 100000
-            , max_segment_size = 3000000
-            , max_audience_size = max_audience_size
-            , min_audience_size = 10000
-            )  
-    
-    return audience_api_results
-
-def audience_insights_csv_1(audience_api_result):
-    d = flatten_dict_1(audience_api_result)
-    l = d.items()
-    return sorted(l, key = lambda x : (x[0].split("|")[0], -1*int(x[-1])))
-    #print i[0] + " | " + str(int(i[1]))
-
-def flatten_dict_1(d):
-    def expand(key, value):
-        if isinstance(value, dict):
-            return [ (key + ' | ' + k, v) for k, v in flatten_dict_1(value).items() ]
-        else:
-            return [ (key, value) ]
-    items = [ item for k, v in d.items() for item in expand(k, v) ]
-    return dict(items)
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-n","--audience_name",dest="audience_identifier", default=None,
-            help="must provide a name string for the conversation/audience, alphanumeric + underscore only")
-    parser.add_argument("-i","--input-file-name",dest="input_file_name",default=None,
-            help="file containing tweets, tweet IDs, or user IDs; take input from stdin if not present")
-    parser.add_argument("-f","--full-tweet-input",dest="full_tweet_input",action="store_true",default=False,
-            help="input is JSON-formatted tweet data")
-    parser.add_argument("-u","--user-id-input",dest="user_id_input",action="store_true",default=True,
-            help="input is user IDs")
-    parser.add_argument("-g","--groupings",dest="groupings_file",default=None,
-            help="groupings file, if None default groupings are used")
-    parser.add_argument("-d", "--results-detination",dest="results_file",default="",
-            help="destination file for the audience api results")
-    parser.add_argument("-m","--max_audience_size",dest="max_audience_size",default=300000,type=int,
-            help="the maximum audience size")
-    args = parser.parse_args()
-    
-    assert args.audience_identifier is not None, "You must provide an id for the analysis"
-    
-    time_string = datetime.datetime.now().isoformat().split(".")[0].translate(None,":")
-    aud_name =  args.audience_identifier + "_" + time_string 
-    
-    if args.input_file_name is not None:
-        generator = open(args.input_file_name)
-    else:
-        generator = sys.stdin
-    
-    if args.full_tweet_input:
-        user_ids = []
-        for line in generator: 
-            try:
-                tweet = json.loads(line)  
-                if "actor" not in tweet:
-                    continue
-                user_id = int(tweet["actor"]["id"].split(":")[2])
-                if user_id not in user_ids:
-                    user_ids.append( user_id ) 
-            except ValueError:
-                continue
-            
-    if args.user_id_input:
-        user_ids = [user_id.strip() for user_id in generator]
-        user_ids = list(set(user_ids))
-
-    try:
-        os.stat(args.results_file + aud_name + "_logging")
-    except:
-        os.mkdir(args.results_file + aud_name + "_logging")
-
-    try:
-        os.stat(args.results_file + aud_name)
-    except:
-        os.mkdir(args.results_file + aud_name)
-    
-    if args.groupings_file is not None:
-        groupings = json.dumps(json.load(open(args.groupings_file,"r")))
-    else: 
-        groupings = None
-    
-    audience_api_results = call_audience_api(user_ids, aud_name, groupings=groupings, max_audience_size = args.max_audience_size, log_file_location = args.results_file + aud_name + "_logging/")
-
-    print "\nAudience API Results"
-    if audience_api_results != "Audience is too small to use the Audience API":
-        for i, res in enumerate(audience_api_results):
-            aud_csv = audience_insights_csv_1(res)
-            audience_insights_file = open(args.results_file + aud_name + "/" + aud_name + "_audience_api_results_" + str(i) + ".piped", "w")
-            audience_insights_file_json = open(args.results_file + aud_name + "/" + aud_name + "_audience_api_results_" + str(i) + ".json", "w")
-            audience_insights_file_json.write(json.dumps(res).encode("utf-8"))
-            audience_insights_file_json.close()
-            for line in aud_csv:
-                audience_insights_file.write(line[0].encode("utf-8") + " | " + str(int(line[1])) + "\n")
-                if int(line[1]) > 15:
-                    print line[0] + " | " + str(int(line[1]))
-    else:
-        print audience_api_results
-
-    audience_insights_file.close()
-
-

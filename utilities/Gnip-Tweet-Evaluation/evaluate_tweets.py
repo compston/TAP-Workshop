@@ -7,11 +7,12 @@ except ImportError:
     import json
 import sys
 import datetime
+import os
 
 from gnip_tweet_evaluation import analysis,output
 
 ##
-## analysis functions
+## analysis function
 ##
 
 def run_analysis(input_generator, conversation_results, audience_results): 
@@ -49,13 +50,21 @@ if __name__ == '__main__':
     parser.add_argument("-a","--do-audience-analysis",dest="do_audience_analysis",action="store_true",default=False,
             help="do audience analysis on users") 
     parser.add_argument("-i","--input-file-name",dest="input_file_name",default=None,
-            help="file containing tweets, tweet IDs, or user IDs; take input from stdin if not present")
+            help="file containing tweets, tweet IDs, or user IDs; take input from stdin if not present") 
+    parser.add_argument('-o','--output-dir',dest='output_directory',default=os.environ['HOME'] + '/tweet_evaluation/',
+            help='directory for output files; default is %(default)s')
     args = parser.parse_args()
 
     # get the time right now, to use in output naming
-    time_string = datetime.datetime.now().isoformat().split(".")[0].translate(None,":")
+    time_now = datetime.datetime.now()
+    time_string = time_now.isoformat().split(".")[0].translate(None,":") 
+    output_directory = '{0}/{1:04d}/{2:02d}/{3:02d}/'.format(args.output_directory.rstrip('/')
+            ,time_now.year
+            ,time_now.month
+            ,time_now.day
+            ) 
 
-    # creat dictionaries for results requested
+    # create dictionaries for results requested
     # entries in these dictionaries map measurement names to data collections
     # start by creating a unique ID from the audience/conversation identifier and the current time
     if args.do_audience_analysis:
@@ -79,7 +88,7 @@ if __name__ == '__main__':
     # format and dump results
     if args.do_conversation_analysis:
         analysis.summarize_tweets(conversation_results)
-        output.dump_conversation(conversation_results)
+        output.dump_conversation(conversation_results,output_directory) 
     if args.do_audience_analysis:
         analysis.summarize_audience(audience_results)
-        output.dump_audience(audience_results)
+        output.dump_audience(audience_results,output_directory)
