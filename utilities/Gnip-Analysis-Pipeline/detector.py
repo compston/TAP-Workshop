@@ -4,11 +4,11 @@ import pickle
 import argparse
 import sys
 
-sys.path.insert(0,"/Users/scompston/Desktop/Unilever/TAP-Workshop/utilities/Gnip-Trend-Detection")
+sys.path.insert(0,"/Users/scompston/final_unilever/TAP-Workshop/utilities/Gnip-Trend-Detection")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-i","--input-file",dest="input_file",default=None)
-parser.add_argument("-t","--theta",dest="theta",default=float(1))
+parser.add_argument("-t","--theta",dest="theta",default=float(1),type=float)
 args = parser.parse_args()
 
 if args.input_file is None:
