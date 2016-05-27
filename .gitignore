@@ -2,3 +2,5 @@
 /utilities/Gnip-Python-Historical-Utilities/src/.gnip
 *.DS_Store
 /utilities/Gnip-Analysis-Pipeline/enrichments/stanford-corenlp-full*
+/utilities/Gnip-Analysis-Pipeline/enrichments/stanford_corenlp_pywrapper*
+/utilities/Gnip-Analysis-Pipeline/enrichments/scp_repo*
