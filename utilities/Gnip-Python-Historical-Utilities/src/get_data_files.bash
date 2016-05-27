@@ -14,9 +14,9 @@ SLEEPTIME=15   # seconds
 MAXPROCS=8     # cores?
 procName=curl
 # to run different directory, update these
-# Auto updated: 2016-05-19 12:39:50.620057
+# Auto updated: 2016-05-27 11:42:04.901187
 # AUTOPATH=.
-AUTOPATH=/Users/scompston/Desktop/Unilever/TAP-Workshop/utilities/Gnip-Python-Historical-Utilities/src
+AUTOPATH=/Users/scompston/final_unilever/TAP-Workshop/utilities/Gnip-Python-Historical-Utilities/src
 #
 export PYTHONPATH=${PYTHONPATH}:$AUTOPATH
 mangler="$AUTOPATH/name_mangle.py"
