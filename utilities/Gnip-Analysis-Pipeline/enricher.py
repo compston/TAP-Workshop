@@ -5,7 +5,8 @@ import ujson as json
 import importlib
 
 module_name_list = [
-        "test_module"
+        "test_module",
+	"nlp"
         ]
 
 ## fill this list with ordered instances of all enriching classes

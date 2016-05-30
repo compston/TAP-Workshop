@@ -278,15 +278,6 @@ class AllBioTermsUniqUserCounter(SimpleCountersBase,TokenizedBio):
                 self.counters[token] += 1
             self.users.append(tweet['actor']['id'])
 
-## Non-targeted unique user counters
-
-#class UniqUserPerTermCounter(TokenizedBody,SimpleCountersBase)
-#    
-#    def update(self,tweet):
-#	user_id = tweet['actor']['id']
-#	for token in self.get_tokens(tweet):
-	    
-
 ##
 # generate measurements per rule, per topic model, etc.
 ##
