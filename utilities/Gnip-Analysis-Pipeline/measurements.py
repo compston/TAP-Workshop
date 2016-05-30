@@ -266,7 +266,6 @@ class AllBodyTermsCounter(SimpleCountersBase,TokenizedBody):
     def update(self,tweet):
 	for token in self.get_tokens(tweet):
 	    self.counters[token] +=1
-m.append(AllBodyTermsCounter)
 
 class AllBioTermsUniqUserCounter(SimpleCountersBase,TokenizedBio):
     def __init__(self):
