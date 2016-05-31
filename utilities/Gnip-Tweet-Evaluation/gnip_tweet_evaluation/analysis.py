@@ -106,12 +106,12 @@ def analyze_bio(tweet,results):
                 )
     results["bio_term_count"].add(tweet["actor"]["summary"])
 
-    if "enrichments" in tweet:
-        if "age_and_gender_breakdown" not in results:
-            results["age_and_gender_breakdown"] = defaultdict(int)
-        age = tweet["enrichments"]["UserAgeAndGender"]["age"]
-        gender = tweet["enrichments"]["UserAgeAndGender"]["gender"]
-        results["age_and_gender_breakdown"][(gender, age)] += 1
+    #if "enrichments" in tweet:
+        #if "age_and_gender_breakdown" not in results:
+        #    results["age_and_gender_breakdown"] = defaultdict(int)
+        #age = tweet["enrichments"]["UserAgeAndGender"]["age"]
+        #gender = tweet["enrichments"]["UserAgeAndGender"]["gender"]
+        #results["age_and_gender_breakdown"][(gender, age)] += 1
 
     #if "age_breakdown" not in results:
     #    results["age_breakdown"] = defaultdict(int)
